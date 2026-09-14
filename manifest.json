@@ -1,0 +1,12 @@
+{
+  "name": "Vanity — Beauty Tracker",
+  "short_name": "Vanity",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FAF3EE",
+  "theme_color": "#B97D8B",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
