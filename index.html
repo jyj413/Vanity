@@ -71,14 +71,14 @@ body{
 .crumbs .sep{ color: var(--pink); padding: 0 2px; }
 
 .toolrow{
-  display:flex; justify-content: space-between; align-items:center;
-  margin-top: 12px;
+  display:flex; flex-direction: column; gap: 8px;
+  margin-top: 10px;
 }
-.toolrow-right{ display:flex; align-items:center; gap: 8px; }
-.count-label{ font-size: 12.5px; color: var(--text-soft); }
+.toolrow-line{ display:flex; justify-content: space-between; align-items:center; gap: 8px; }
+.count-label{ font-size: 12px; color: var(--text-soft); }
 .view-toggle{
   display:flex; border: 1px solid var(--border); border-radius: 20px;
-  overflow: hidden; background: var(--surface);
+  overflow: hidden; background: var(--surface); flex-shrink:0;
 }
 .view-btn{
   border:none; background: transparent; color: var(--text-soft);
@@ -86,16 +86,19 @@ body{
   display:flex; align-items:center; justify-content:center;
 }
 .view-btn.active{ background: var(--pink-deep); color: #fff; }
-.sort-btn{
+.sort-btn, .filter-btn{
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   font-family: 'Work Sans', sans-serif;
-  font-size: 13px;
-  padding: 7px 12px;
+  font-size: 12.5px;
+  padding: 6px 11px;
   border-radius: 20px;
-  display:flex; align-items:center; gap:6px;
+  display:flex; align-items:center; gap:5px;
+  white-space: nowrap;
 }
+.filter-btn.active{ background: var(--pink-pale); border-color: var(--pink); color: var(--pink-deep); font-weight:600; }
+.sort-filter-row{ display:flex; gap: 8px; overflow-x:auto; }
 
 /* Grid */
 .grid{
@@ -110,7 +113,7 @@ body{
 .list-view .folder-tile{
   flex-direction: row; align-items: center; padding: 14px; gap: 14px;
 }
-.list-view .folder-icon{ flex-shrink: 0; }
+.list-view .folder-icon, .list-view .folder-icon-svg{ flex-shrink: 0; }
 .list-view .product-tile{
   flex-direction: row; align-items: stretch;
 }
@@ -146,6 +149,13 @@ body{
   width: 16px; height: 8px; background: var(--pink);
   border-radius: 4px 4px 0 0;
 }
+.folder-icon-svg{
+  width: 38px; height: 38px; border-radius: 12px;
+  background: var(--pink-pale); color: var(--pink-deep);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink: 0;
+}
+.folder-icon-svg svg{ width: 20px; height: 20px; }
 .folder-name{ font-weight: 600; font-size: 14.5px; line-height:1.25; }
 .folder-meta{ font-size: 11.5px; color: var(--text-soft); }
 .tile-menu-btn{
@@ -196,9 +206,8 @@ body{
 
 /* FAB */
 .fab{
-  position: fixed; bottom: 26px; left: 50%;
-  transform: translateX(50%);
-  max-width: 560px;
+  position: fixed; bottom: 26px;
+  left: max(24px, calc(50% - 256px));
   width: 58px; height: 58px;
   border-radius: 50%;
   background: var(--pink-deep);
@@ -222,59 +231,61 @@ body{
   background: var(--bg);
   width: 100%; max-width: 560px;
   border-radius: 22px 22px 0 0;
-  padding: 10px 20px 28px;
-  max-height: 90vh; overflow-y: auto;
+  padding: 8px 18px 18px;
+  max-height: 92vh; overflow-y: auto;
   animation: rise 0.22s ease-out;
 }
 @keyframes rise{ from{ transform: translateY(30px); opacity:0;} to{ transform: translateY(0); opacity:1;} }
 .sheet-handle{
-  width: 40px; height: 4px; background: var(--border);
-  border-radius: 4px; margin: 8px auto 14px;
+  width: 36px; height: 4px; background: var(--border);
+  border-radius: 4px; margin: 6px auto 10px;
 }
-.sheet-title{ font-family:'Fraunces', serif; font-size: 20px; font-weight:600; margin: 0 0 16px; }
+.sheet-title{ font-family:'Fraunces', serif; font-size: 17px; font-weight:600; margin: 0 0 10px; }
 
 .action-item{
   display:flex; align-items:center; gap: 12px;
-  padding: 14px 4px; font-size: 15px; font-weight: 500;
+  padding: 11px 4px; font-size: 14px; font-weight: 500;
   border-bottom: 1px solid var(--border);
 }
 .action-item:last-child{ border-bottom: none; }
 .action-icon{
-  width: 36px; height: 36px; border-radius: 10px;
+  width: 32px; height: 32px; border-radius: 9px;
   background: var(--pink-pale); color: var(--pink-deep);
-  display:flex; align-items:center; justify-content:center; font-size: 17px;
+  display:flex; align-items:center; justify-content:center; font-size: 15px;
 }
 
 label.field-label{
-  display:block; font-size: 12.5px; font-weight: 600;
-  color: var(--text-soft); margin: 14px 0 6px;
+  display:block; font-size: 11px; font-weight: 600;
+  color: var(--text-soft); margin: 9px 0 4px;
 }
 input[type=text], input[type=date], textarea, select{
-  width: 100%; padding: 11px 13px;
-  border: 1px solid var(--border); border-radius: 12px;
+  width: 100%; padding: 8px 11px;
+  border: 1px solid var(--border); border-radius: 11px;
   background: var(--surface);
-  font-family: 'Work Sans', sans-serif; font-size: 14.5px;
+  font-family: 'Work Sans', sans-serif; font-size: 13px;
   color: var(--text);
 }
-textarea{ min-height: 70px; resize: vertical; }
+textarea{ min-height: 44px; resize: vertical; }
 .date-row{ display:flex; gap: 10px; }
 .date-row > div{ flex:1; }
 
+.photo-row{ display:flex; align-items:center; gap: 12px; margin-top: 2px; }
 .photo-picker{
-  width: 100%; aspect-ratio: 4/3; border-radius: 14px;
+  width: 76px; height: 76px; flex-shrink: 0; border-radius: 14px;
   border: 1.5px dashed var(--pink);
   background: var(--surface-alt);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap: 6px; color: var(--pink-deep); font-size: 13.5px; font-weight: 500;
-  overflow:hidden; position:relative; margin-top: 4px;
+  gap: 2px; color: var(--pink-deep); font-size: 9.5px; font-weight: 500;
+  overflow:hidden; position:relative;
 }
 .photo-picker img{ width:100%; height:100%; object-fit: cover; position:absolute; inset:0; }
-.photo-picker .plus-icon{ font-size: 26px; }
+.photo-picker .plus-icon{ font-size: 18px; line-height: 1; }
+.photo-hint{ font-size: 12px; color: var(--text-soft); }
 
-.sheet-actions{ display:flex; gap: 10px; margin-top: 22px; }
+.sheet-actions{ display:flex; gap: 10px; margin-top: 14px; }
 .btn{
-  flex:1; padding: 13px; border-radius: 12px; border:none;
-  font-family:'Work Sans', sans-serif; font-weight:600; font-size: 14.5px;
+  flex:1; padding: 11px; border-radius: 11px; border:none;
+  font-family:'Work Sans', sans-serif; font-weight:600; font-size: 13.5px;
 }
 .btn-primary{ background: var(--pink-deep); color: #fff; }
 .btn-secondary{ background: var(--surface); color: var(--text); border: 1px solid var(--border); }
@@ -283,6 +294,30 @@ textarea{ min-height: 70px; resize: vertical; }
 .sort-options .action-item{ cursor:pointer; justify-content: space-between; }
 .sort-options .check{ color: var(--pink-deep); font-weight:700; visibility:hidden; }
 .sort-options .active .check{ visibility: visible; }
+
+.toggle-row{
+  display:flex; align-items:center; justify-content: space-between;
+  padding: 9px 0; font-size: 13px; font-weight: 500;
+}
+.toggle-switch{
+  width: 40px; height: 24px; border-radius: 20px;
+  background: var(--border); position: relative; flex-shrink:0;
+  border: none; cursor:pointer;
+}
+.toggle-switch::after{
+  content:''; position:absolute; top:3px; left:3px;
+  width:18px; height:18px; border-radius:50%; background:#fff;
+  transition: left 0.15s ease;
+}
+.toggle-switch.on{ background: var(--pink-deep); }
+.toggle-switch.on::after{ left: 19px; }
+.badge.using{ background: var(--pink-deep); color: #fff; }
+
+.filter-days-input{
+  width: 46px; padding: 4px 6px; text-align:center;
+  border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; background: var(--surface); color: var(--text);
+}
 </style>
 </head>
 <body>
@@ -292,13 +327,16 @@ textarea{ min-height: 70px; resize: vertical; }
     <div class="storage-banner hidden" id="storageBanner">Your browser is blocking storage (private browsing or storage is full) — changes won't be saved.</div>
     <div class="crumbs" id="crumbs"></div>
     <div class="toolrow">
-      <div class="count-label" id="countLabel"></div>
-      <div class="toolrow-right">
+      <div class="toolrow-line">
+        <div class="count-label" id="countLabel"></div>
         <div class="view-toggle" id="viewToggle">
           <button class="view-btn" data-view="grid" id="gridViewBtn" aria-label="Grid view">⊞</button>
           <button class="view-btn" data-view="list" id="listViewBtn" aria-label="List view">☰</button>
         </div>
+      </div>
+      <div class="toolrow-line sort-filter-row">
         <button class="sort-btn" id="sortBtn">⇅ <span id="sortLabel">Recently added</span></button>
+        <button class="filter-btn" id="filterBtn">⚲ <span id="filterLabel">Filter</span></button>
       </div>
     </div>
   </div>
@@ -313,18 +351,36 @@ const gridEl = document.getElementById('grid');
 const crumbsEl = document.getElementById('crumbs');
 const countLabel = document.getElementById('countLabel');
 const sortLabelEl = document.getElementById('sortLabel');
+const filterLabelEl = document.getElementById('filterLabel');
+const filterBtnEl = document.getElementById('filterBtn');
 
-let folders = [];   // {id, name, parentId}
-let products = [];  // {id, name, folderId, image, quantity, purchaseDate, mfgDate, expDate, notes, createdAt, updatedAt}
+let folders = [];   // {id, name, parentId, icon}
+let products = [];  // {id, name, folderId, image, quantity, inUse, purchaseDate, mfgDate, expDate, notes, createdAt, updatedAt}
 let currentFolderId = null;
 let sortMode = 'added';
 let viewMode = 'grid';
+let filterMode = { type: 'all', days: 14 };
 const SORT_LABELS = {
   added: 'Recently added',
   name: 'Name A–Z',
   expiry: 'Expiring soonest',
   purchased: 'Recently purchased'
 };
+
+// Minimalist line-icon set for the default category folders — plain strokes,
+// no fill, matching the app's understated feminine look.
+const FOLDER_ICONS = {
+  haircare: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6c2 3 2 5 0 8M9 5c2 3.5 2 6.5 0 10M14 5c2 3.5 2 6.5 0 10M19 6c2 3 2 5 0 8"/></svg>`,
+  skincare: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 6 7.2 6 11a6 6 0 1 1-12 0c0-3.8 3-7 6-11z"/></svg>`,
+  makeup: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="14" width="6" height="7" rx="1.3"/><line x1="9" y1="16.8" x2="15" y2="16.8"/><path d="M9 14 L9.7 6.3 Q10 5 11.4 5.1 L13.8 5.4 Q15.3 5.6 15 7 L15 14"/></svg>`,
+  wishlist: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.35-9.5-8.8C1.1 8.4 2.4 5 5.8 5c1.9 0 3.3 1 4.2 2.4C10.9 6 12.3 5 14.2 5c3.4 0 4.7 3.4 3.3 6.2C15 15.65 12 20 12 20z"/></svg>`,
+  folder: null
+};
+function folderIconMarkup(folder){
+  const svg = folder.icon && FOLDER_ICONS[folder.icon];
+  if(svg) return `<div class="folder-icon-svg">${svg}</div>`;
+  return `<div class="folder-icon"></div>`;
+}
 
 function uid(){ return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8); }
 
@@ -444,6 +500,20 @@ async function loadAll(){
   products = results.filter(Boolean).map(v => JSON.parse(v));
   const vRaw = await safeGet('view-mode');
   if(vRaw === 'grid' || vRaw === 'list') viewMode = vRaw;
+
+  const seededFlag = await safeGet('seeded-v1');
+  if(!seededFlag){
+    if(folders.length === 0){
+      folders.push(
+        { id: uid(), name: 'Haircare', parentId: null, icon: 'haircare' },
+        { id: uid(), name: 'Skincare', parentId: null, icon: 'skincare' },
+        { id: uid(), name: 'Makeup', parentId: null, icon: 'makeup' },
+        { id: uid(), name: 'Wish List & Empties', parentId: null, icon: 'wishlist' }
+      );
+      await saveFolders();
+    }
+    await storageAPI.set('seeded-v1', 'true', false);
+  }
 }
 
 // ---------- Helpers ----------
@@ -506,6 +576,17 @@ function render(){
   gridEl.classList.toggle('list-view', viewMode === 'list');
   document.getElementById('gridViewBtn').classList.toggle('active', viewMode === 'grid');
   document.getElementById('listViewBtn').classList.toggle('active', viewMode === 'list');
+  updateFilterLabel();
+  window.scrollTo(0, 0);
+}
+
+function updateFilterLabel(){
+  let label = 'Filter';
+  if(filterMode.type === 'using') label = 'Using';
+  else if(filterMode.type === 'expired') label = 'Expired';
+  else if(filterMode.type === 'soon') label = `≤${filterMode.days}d`;
+  filterLabelEl.textContent = label;
+  filterBtnEl.classList.toggle('active', filterMode.type !== 'all');
 }
 
 document.getElementById('viewToggle').addEventListener('click', (e)=>{
@@ -549,15 +630,34 @@ function sortedProducts(list){
   return arr;
 }
 
+function filterProducts(list){
+  if(filterMode.type === 'all') return list;
+  if(filterMode.type === 'using') return list.filter(p => p.inUse);
+  if(filterMode.type === 'expired') return list.filter(p => {
+    const info = expiryInfo(p);
+    return info && info.cls === 'expired';
+  });
+  if(filterMode.type === 'soon') return list.filter(p => {
+    const eff = effectiveExp(p);
+    if(!eff) return false;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const exp = new Date(eff.date+'T00:00:00');
+    const days = Math.round((exp - today)/86400000);
+    return days <= (filterMode.days || 14);
+  });
+  return list;
+}
+
 function renderGrid(){
   const subFolders = directChildFolders(currentFolderId).sort((a,b)=>a.name.localeCompare(b.name));
-  const items = sortedProducts(directProducts(currentFolderId));
+  const items = sortedProducts(filterProducts(directProducts(currentFolderId)));
+  const filtered = filterMode.type !== 'all';
   countLabel.textContent = `${subFolders.length} folder${subFolders.length!==1?'s':''} · ${items.length} item${items.length!==1?'s':''}`;
 
   if(subFolders.length===0 && items.length===0){
     gridEl.innerHTML = `<div class="empty-state">
-      <div class="big">Nothing here yet</div>
-      <div>Tap + to add your first product or folder.</div>
+      <div class="big">${filtered ? 'No matches' : 'Nothing here yet'}</div>
+      <div>${filtered ? 'Nothing in this folder matches that filter.' : 'Tap + to add your first product or folder.'}</div>
     </div>`;
     return;
   }
@@ -566,7 +666,7 @@ function renderGrid(){
   subFolders.forEach(f=>{
     const c = countRecursive(f.id);
     html += `<div class="tile folder-tile" data-folder="${f.id}">
-      <div class="folder-icon"></div>
+      ${folderIconMarkup(f)}
       <div class="folder-name">${escapeHtml(f.name)}</div>
       <div class="folder-meta">${c} item${c!==1?'s':''}</div>
       <div class="tile-menu-btn" data-folder-menu="${f.id}">⋯</div>
@@ -583,7 +683,10 @@ function renderGrid(){
       <div class="product-body">
         <div class="product-name">${escapeHtml(p.name)}</div>
         <div class="product-sub">Qty ${qty} ${p.purchaseDate ? '· Bought ' + fmtDate(p.purchaseDate) : ''}</div>
-        ${info ? `<div class="badge ${info.cls}">${info.label}</div>` : ''}
+        <div style="display:flex; flex-wrap:wrap; gap:5px;">
+          ${p.inUse ? `<div class="badge using">In use</div>` : ''}
+          ${info ? `<div class="badge ${info.cls}">${info.label}</div>` : ''}
+        </div>
         <div class="updated-label">Updated ${fmtDateTime(p.updatedAt || p.createdAt)}</div>
       </div>
     </div>`;
@@ -615,6 +718,9 @@ function openSheet(innerHtml){
   overlay.innerHTML = `<div class="sheet">${innerHtml}</div>`;
   overlay.classList.remove('hidden');
   overlay.onclick = (e)=>{ if(e.target===overlay) closeOverlay(); };
+  const sheetEl = overlay.querySelector('.sheet');
+  if(sheetEl) sheetEl.scrollTop = 0;
+  window.scrollTo(0, 0);
 }
 
 // ---------- FAB / Add menu ----------
@@ -642,6 +748,43 @@ document.getElementById('sortBtn').onclick = ()=>{
   overlay.querySelectorAll('[data-sort]').forEach(el=>{
     el.onclick = ()=>{ sortMode = el.getAttribute('data-sort'); closeOverlay(); render(); };
   });
+};
+
+// ---------- Filter menu ----------
+filterBtnEl.onclick = ()=>{
+  openSheet(`
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Filter this folder</div>
+    <div class="sort-options">
+      <div class="action-item ${filterMode.type==='all'?'active':''}" data-filter="all"><span>All items</span><span class="check">✓</span></div>
+      <div class="action-item ${filterMode.type==='using'?'active':''}" data-filter="using"><span>Currently using</span><span class="check">✓</span></div>
+      <div class="action-item ${filterMode.type==='expired'?'active':''}" data-filter="expired"><span>Expired</span><span class="check">✓</span></div>
+      <div class="action-item ${filterMode.type==='soon'?'active':''}" data-filter="soon">
+        <span style="flex:1;">Expiring within
+          <input type="text" inputmode="numeric" class="filter-days-input" id="filterDaysInput" value="${filterMode.days}"> days
+        </span>
+        <span class="check">✓</span>
+      </div>
+    </div>
+  `);
+  overlay.querySelectorAll('[data-filter]').forEach(el=>{
+    el.onclick = (e)=>{
+      if(e.target.id === 'filterDaysInput') return;
+      filterMode.type = el.getAttribute('data-filter');
+      closeOverlay(); render();
+    };
+  });
+  const daysInput = document.getElementById('filterDaysInput');
+  daysInput.onclick = (e)=> e.stopPropagation();
+  daysInput.oninput = ()=>{
+    let v = parseInt(daysInput.value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    filterMode.days = v;
+    filterMode.type = 'soon';
+  };
+  daysInput.onkeydown = (e)=>{
+    if(e.key === 'Enter'){ closeOverlay(); render(); }
+  };
 };
 
 // ---------- Folder sheet (add/edit/delete) ----------
@@ -714,9 +857,12 @@ function openProductSheet(productId){
     <div class="sheet-handle"></div>
     <div class="sheet-title">${editing ? 'Edit product' : 'New product'}</div>
 
-    <div class="photo-picker" id="photoPicker">
-      ${editing && editing.image ? `<img src="${editing.image}">` : `<div class="plus-icon">＋</div><div>Add photo</div>`}
-      <input type="file" accept="image/*" id="photoInput" style="display:none;">
+    <div class="photo-row">
+      <div class="photo-picker" id="photoPicker">
+        ${editing && editing.image ? `<img src="${editing.image}">` : `<div class="plus-icon">＋</div><div>Photo</div>`}
+        <input type="file" accept="image/*" id="photoInput" style="display:none;">
+      </div>
+      <div class="photo-hint">Tap the square to add a photo</div>
     </div>
 
     <label class="field-label">Product name</label>
@@ -733,6 +879,11 @@ function openProductSheet(productId){
         <label class="field-label">Qty</label>
         <input type="text" inputmode="numeric" id="qtyInput" value="${editing && (editing.quantity===0 || editing.quantity) ? editing.quantity : 1}">
       </div>
+    </div>
+
+    <div class="toggle-row">
+      <span>Currently using</span>
+      <button type="button" class="toggle-switch ${editing && editing.inUse ? 'on' : ''}" id="inUseToggle"></button>
     </div>
 
     <div class="date-row">
@@ -756,6 +907,13 @@ function openProductSheet(productId){
       <button class="btn btn-primary" id="saveProductBtn">Save</button>
     </div>
   `);
+
+  let inUseValue = !!(editing && editing.inUse);
+  const inUseToggle = document.getElementById('inUseToggle');
+  inUseToggle.onclick = ()=>{
+    inUseValue = !inUseValue;
+    inUseToggle.classList.toggle('on', inUseValue);
+  };
 
   let pendingImage = editing ? (editing.image || null) : null;
   const picker = document.getElementById('photoPicker');
@@ -811,6 +969,7 @@ function openProductSheet(productId){
       editing.name = name;
       editing.folderId = folderVal;
       editing.quantity = quantity;
+      editing.inUse = inUseValue;
       editing.purchaseDate = purchaseDate;
       editing.mfgDate = mfgDate;
       editing.expDate = expDate;
@@ -820,7 +979,7 @@ function openProductSheet(productId){
       await saveProduct(editing);
     } else {
       const p = {
-        id: uid(), name, folderId: folderVal, quantity,
+        id: uid(), name, folderId: folderVal, quantity, inUse: inUseValue,
         purchaseDate, mfgDate, expDate, notes,
         image: pendingImage, createdAt: now, updatedAt: now
       };
