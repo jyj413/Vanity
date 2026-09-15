@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Vanity — Beauty Tracker</title>
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -47,10 +47,20 @@ body{
   font-size: 26px;
   font-weight: 600;
   letter-spacing: 0.2px;
-  margin: 0 0 14px 0;
+  margin: 0;
   color: var(--text);
 }
 .brand span{ color: var(--pink-deep); }
+.brand-row{
+  display:flex; align-items:center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.icon-btn{
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-soft); font-size: 18px; line-height:0;
+  display:flex; align-items:center; justify-content:center;
+}
 
 .storage-banner{
   background: #F3E4CE; color: var(--amber);
@@ -207,7 +217,7 @@ body{
 /* FAB */
 .fab{
   position: fixed; bottom: 26px;
-  left: max(24px, calc(50% - 256px));
+  right: max(24px, calc(50% - 256px));
   width: 58px; height: 58px;
   border-radius: 50%;
   background: var(--pink-deep);
@@ -297,7 +307,12 @@ textarea{ min-height: 44px; resize: vertical; }
 
 .toggle-row{
   display:flex; align-items:center; justify-content: space-between;
-  padding: 9px 0; font-size: 13px; font-weight: 500;
+  padding: 10px 12px; font-size: 13.5px; font-weight: 500;
+  color: var(--text);
+  background: var(--surface-alt);
+  border: 1px solid var(--pink);
+  border-radius: 12px;
+  margin: 10px 0 4px;
 }
 .toggle-switch{
   width: 40px; height: 24px; border-radius: 20px;
@@ -313,17 +328,28 @@ textarea{ min-height: 44px; resize: vertical; }
 .toggle-switch.on::after{ left: 19px; }
 .badge.using{ background: var(--pink-deep); color: #fff; }
 
-.filter-days-input{
-  width: 46px; padding: 4px 6px; text-align:center;
+input[type=text].filter-days-input{
+  width: 90px; padding: 4px 6px; text-align:center;
   border: 1px solid var(--border); border-radius: 8px;
   font-size: 13px; background: var(--surface); color: var(--text);
+  flex-shrink: 0;
 }
+.filter-days-row{
+  flex-wrap: nowrap; gap: 6px;
+}
+.filter-days-label{
+  white-space: nowrap; flex-shrink: 0; overflow: visible;
+}
+.filter-days-row .check{ margin-left: auto; flex-shrink:0; }
 </style>
 </head>
 <body>
 <div id="app">
   <div class="topbar">
-    <h1 class="brand">Vanity<span>.</span></h1>
+    <div class="brand-row">
+      <h1 class="brand">Vanity<span>.</span></h1>
+      <button class="icon-btn" id="menuBtn" aria-label="Backup and restore">⋯</button>
+    </div>
     <div class="storage-banner hidden" id="storageBanner">Your browser is blocking storage (private browsing or storage is full) — changes won't be saved.</div>
     <div class="crumbs" id="crumbs"></div>
     <div class="toolrow">
@@ -373,7 +399,7 @@ const FOLDER_ICONS = {
   haircare: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6c2 3 2 5 0 8M9 5c2 3.5 2 6.5 0 10M14 5c2 3.5 2 6.5 0 10M19 6c2 3 2 5 0 8"/></svg>`,
   skincare: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 6 7.2 6 11a6 6 0 1 1-12 0c0-3.8 3-7 6-11z"/></svg>`,
   makeup: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="14" width="6" height="7" rx="1.3"/><line x1="9" y1="16.8" x2="15" y2="16.8"/><path d="M9 14 L9.7 6.3 Q10 5 11.4 5.1 L13.8 5.4 Q15.3 5.6 15 7 L15 14"/></svg>`,
-  wishlist: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.35-9.5-8.8C1.1 8.4 2.4 5 5.8 5c1.9 0 3.3 1 4.2 2.4C10.9 6 12.3 5 14.2 5c3.4 0 4.7 3.4 3.3 6.2C15 15.65 12 20 12 20z"/></svg>`,
+  wishlist: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>`,
   folder: null
 };
 function folderIconMarkup(folder){
@@ -759,10 +785,10 @@ filterBtnEl.onclick = ()=>{
       <div class="action-item ${filterMode.type==='all'?'active':''}" data-filter="all"><span>All items</span><span class="check">✓</span></div>
       <div class="action-item ${filterMode.type==='using'?'active':''}" data-filter="using"><span>Currently using</span><span class="check">✓</span></div>
       <div class="action-item ${filterMode.type==='expired'?'active':''}" data-filter="expired"><span>Expired</span><span class="check">✓</span></div>
-      <div class="action-item ${filterMode.type==='soon'?'active':''}" data-filter="soon">
-        <span style="flex:1;">Expiring within
-          <input type="text" inputmode="numeric" class="filter-days-input" id="filterDaysInput" value="${filterMode.days}"> days
-        </span>
+      <div class="action-item filter-days-row ${filterMode.type==='soon'?'active':''}" data-filter="soon">
+        <span class="filter-days-label">Expiring within</span>
+        <input type="text" inputmode="numeric" class="filter-days-input" id="filterDaysInput" value="${filterMode.days}">
+        <span class="filter-days-label">days</span>
         <span class="check">✓</span>
       </div>
     </div>
@@ -786,6 +812,96 @@ filterBtnEl.onclick = ()=>{
     if(e.key === 'Enter'){ closeOverlay(); render(); }
   };
 };
+
+// ---------- Backup & Restore ----------
+function todayStamp(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+function exportBackup(){
+  const payload = {
+    app: 'vanity-beauty-tracker',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    folders,
+    products
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vanity-backup-${todayStamp()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 1000);
+}
+
+async function applyBackup(data){
+  const importedFolders = Array.isArray(data.folders) ? data.folders : [];
+  const importedProducts = Array.isArray(data.products) ? data.products : [];
+
+  folders = importedFolders.map(f => ({
+    id: f.id || uid(), name: f.name || 'Untitled', parentId: f.parentId || null, icon: f.icon || null
+  }));
+  products = importedProducts.map(p => ({
+    id: p.id || uid(),
+    name: p.name || 'Untitled',
+    folderId: p.folderId || null,
+    image: p.image || null,
+    quantity: (p.quantity===0 || p.quantity) ? p.quantity : 1,
+    inUse: !!p.inUse,
+    purchaseDate: p.purchaseDate || null,
+    mfgDate: p.mfgDate || null,
+    expDate: p.expDate || null,
+    notes: p.notes || '',
+    createdAt: p.createdAt || Date.now(),
+    updatedAt: p.updatedAt || Date.now()
+  }));
+
+  await saveFolders();
+  await saveProductIndex();
+  for(const p of products){ await saveProduct(p); }
+  currentFolderId = null;
+}
+
+function openMenuSheet(){
+  openSheet(`
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Backup &amp; Restore</div>
+    <div class="action-item" id="exportAction"><div class="action-icon">⬇</div>Export backup (.json)</div>
+    <div class="action-item" id="importAction"><div class="action-icon">⬆</div>Restore from backup</div>
+    <input type="file" accept="application/json,.json" id="importFileInput" style="display:none;">
+    <div class="photo-hint" style="margin-top:10px;">Exports include all your folders, products, photos, and notes. Restoring replaces everything currently in the app.</div>
+  `);
+  document.getElementById('exportAction').onclick = ()=>{
+    exportBackup();
+    closeOverlay();
+  };
+  const fileInput = document.getElementById('importFileInput');
+  document.getElementById('importAction').onclick = ()=> fileInput.click();
+  fileInput.onchange = (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev)=>{
+      let data;
+      try{ data = JSON.parse(ev.target.result); }
+      catch(err){ alert("That file couldn't be read — it doesn't look like a valid backup."); return; }
+      if(!data || (!Array.isArray(data.folders) && !Array.isArray(data.products))){
+        alert("That file doesn't look like a Vanity backup.");
+        return;
+      }
+      if(!confirm('This will replace everything currently in the app with this backup. Continue?')) return;
+      await applyBackup(data);
+      closeOverlay();
+      render();
+    };
+    reader.readAsText(file);
+  };
+}
+document.getElementById('menuBtn').onclick = openMenuSheet;
 
 // ---------- Folder sheet (add/edit/delete) ----------
 function openFolderSheet(folderId){
