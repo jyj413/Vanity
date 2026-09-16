@@ -74,6 +74,25 @@ body{
 }
 .toast.show{ opacity: 0.94; }
 
+#photoMenuOverlay{ z-index: 65; }
+#scannerOverlay{ z-index: 70; }
+.action-icon svg{ width: 18px; height: 18px; }
+.scanner-box{
+  background: var(--bg);
+  width: 100%; max-width: 560px;
+  border-radius: 22px 22px 0 0;
+  padding: 8px 18px 22px;
+  display:flex; flex-direction:column; align-items:center; gap: 12px;
+}
+#qr-reader{
+  width: 100%; border-radius: 14px; overflow:hidden; background:#000;
+  min-height: 220px;
+}
+.scanner-status{
+  font-size: 13px; color: var(--text-soft); text-align:center; min-height: 18px;
+  padding: 0 10px;
+}
+
 .storage-banner{
   background: #F3E4CE; color: var(--amber);
   font-size: 12px; font-weight: 500;
@@ -401,10 +420,14 @@ input[type=text].filter-days-input{
   <button class="fab" id="fabBtn">+</button>
 </div>
 <div class="overlay hidden" id="overlay"></div>
+<div class="overlay hidden" id="photoMenuOverlay"></div>
+<div class="overlay hidden" id="scannerOverlay"></div>
 <div class="toast" id="toast"></div>
 
 <script>
 const overlay = document.getElementById('overlay');
+const photoMenuOverlay = document.getElementById('photoMenuOverlay');
+const scannerOverlay = document.getElementById('scannerOverlay');
 const gridEl = document.getElementById('grid');
 const crumbsEl = document.getElementById('crumbs');
 const countLabel = document.getElementById('countLabel');
@@ -620,6 +643,112 @@ function showToast(msg){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=> toast.classList.remove('show'), 1800);
 }
+
+// ---------- Barcode scanning ----------
+// The scanning library is only fetched the first time someone actually taps
+// "Scan Barcode", so the app stays fast for everyone who never uses it.
+let scannerLibPromise = null;
+function ensureScannerLibLoaded(){
+  if(window.Html5Qrcode) return Promise.resolve();
+  if(scannerLibPromise) return scannerLibPromise;
+  scannerLibPromise = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+    s.onload = ()=> resolve();
+    s.onerror = ()=> { scannerLibPromise = null; reject(new Error('load-failed')); };
+    document.head.appendChild(s);
+  });
+  return scannerLibPromise;
+}
+
+let activeScanner = null;
+async function openBarcodeScanner({ onResult }){
+  scannerOverlay.innerHTML = `
+    <div class="scanner-box">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Scan Barcode</div>
+      <div id="qr-reader"></div>
+      <div class="scanner-status" id="scannerStatus">Loading scanner…</div>
+      <button type="button" class="btn btn-secondary" id="scannerCancelBtn" style="width:100%;">Cancel</button>
+    </div>
+  `;
+  scannerOverlay.classList.remove('hidden');
+  const statusEl = document.getElementById('scannerStatus');
+  let stopped = false;
+
+  async function stopAndClose(){
+    if(stopped) return;
+    stopped = true;
+    if(activeScanner){
+      try{ await activeScanner.stop(); }catch(e){}
+      try{ activeScanner.clear(); }catch(e){}
+      activeScanner = null;
+    }
+    scannerOverlay.classList.add('hidden');
+    scannerOverlay.innerHTML = '';
+  }
+  document.getElementById('scannerCancelBtn').onclick = stopAndClose;
+
+  try{
+    await ensureScannerLibLoaded();
+  }catch(loadErr){
+    statusEl.textContent = "Couldn't load the scanner. Check your connection and try again.";
+    return;
+  }
+  if(stopped) return;
+
+  statusEl.textContent = 'Point your camera at the barcode';
+  try{
+    activeScanner = new Html5Qrcode('qr-reader');
+    await activeScanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 160 } },
+      async (decodedText)=>{
+        if(stopped) return;
+        await stopAndClose();
+        onResult(decodedText);
+      },
+      ()=>{ /* per-frame miss, ignore */ }
+    );
+  }catch(camErr){
+    statusEl.textContent = 'Could not access the camera. Check camera permission for this site in Settings.';
+  }
+}
+
+// Fetches an (often cross-origin) product photo and returns it as a resized
+// base64 JPEG, the same format used for photos picked from the device.
+async function fetchImageAsResizedDataUrl(url, maxW=600){
+  const resp = await fetch(url, { mode: 'cors' });
+  if(!resp.ok) throw new Error('image fetch failed');
+  const blob = await resp.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  try{
+    return await new Promise((resolve, reject)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const scale = Math.min(1, maxW / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = ()=> reject(new Error('image decode failed'));
+      img.src = objectUrl;
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+// Looks a barcode up on Open Beauty Facts (free, no API key needed).
+async function lookupBarcodeProduct(code){
+  const resp = await fetch(`https://world.openbeautyfacts.org/api/v2/product/${encodeURIComponent(code)}.json`);
+  if(!resp.ok) throw new Error('lookup failed');
+  return resp.json();
+}
+
 async function persistFullState(priorProductIds){
   const keepIds = new Set(products.map(p=>p.id));
   for(const id of priorProductIds){
@@ -1284,7 +1413,61 @@ function openProductSheet(productId){
   let pendingImage = editing ? (editing.image || null) : null;
   const picker = document.getElementById('photoPicker');
   const fileInput = document.getElementById('photoInput');
-  picker.onclick = ()=> fileInput.click();
+
+  function setPickerImage(dataUrl){
+    pendingImage = dataUrl;
+    picker.innerHTML = `<img src="${dataUrl}">`;
+  }
+
+  function openPhotoMenu(){
+    photoMenuOverlay.innerHTML = `
+      <div class="sheet" style="max-width:560px;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Add a photo</div>
+        <div class="action-item" id="pmLibrary"><div class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5.5-5.5a2 2 0 0 0-2.8 0L4 19"/></svg></div>Photo Library</div>
+        <div class="action-item" id="pmCamera"><div class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-2h7l1 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg></div>Take Photo</div>
+        <div class="action-item" id="pmBarcode"><div class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 5v14M7.5 5v14M10.5 5v14M13 5v14M16.5 5v14M20 5v14"/></svg></div>Scan Barcode</div>
+        <div class="action-item" id="pmFiles"><div class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg></div>Choose a File</div>
+      </div>
+    `;
+    photoMenuOverlay.classList.remove('hidden');
+    photoMenuOverlay.onclick = (e)=>{ if(e.target===photoMenuOverlay) closePhotoMenu(); };
+    document.getElementById('pmLibrary').onclick = ()=>{ closePhotoMenu(); fileInput.removeAttribute('capture'); fileInput.click(); };
+    document.getElementById('pmFiles').onclick = ()=>{ closePhotoMenu(); fileInput.removeAttribute('capture'); fileInput.click(); };
+    document.getElementById('pmCamera').onclick = ()=>{ closePhotoMenu(); fileInput.setAttribute('capture','environment'); fileInput.click(); };
+    document.getElementById('pmBarcode').onclick = ()=>{
+      closePhotoMenu();
+      openBarcodeScanner({ onResult: (code)=> handleScannedBarcode(code) });
+    };
+  }
+  function closePhotoMenu(){ photoMenuOverlay.classList.add('hidden'); photoMenuOverlay.innerHTML = ''; }
+
+  async function handleScannedBarcode(code){
+    showToast('Looking up product…');
+    try{
+      const data = await lookupBarcodeProduct(code);
+      if(data && data.status === 1 && data.product){
+        const p = data.product;
+        if(p.product_name){
+          const titleInput = document.getElementById('productTitleInput');
+          if(titleInput) titleInput.value = p.product_name;
+        }
+        const imgUrl = p.image_front_url || p.image_url || p.image_small_url;
+        if(imgUrl){
+          try{
+            setPickerImage(await fetchImageAsResizedDataUrl(imgUrl));
+          }catch(imgErr){ /* couldn't fetch photo — name still filled in */ }
+        }
+        showToast('Filled in from barcode');
+      } else {
+        showToast("Barcode not found — add details manually");
+      }
+    }catch(err){
+      showToast("Couldn't look up that barcode");
+    }
+  }
+
+  picker.onclick = ()=> openPhotoMenu();
   fileInput.onchange = (e)=>{
     const file = e.target.files[0];
     if(!file) return;
@@ -1299,8 +1482,7 @@ function openProductSheet(productId){
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        pendingImage = canvas.toDataURL('image/jpeg', 0.75);
-        picker.innerHTML = `<img src="${pendingImage}">`;
+        setPickerImage(canvas.toDataURL('image/jpeg', 0.75));
       };
       img.src = ev.target.result;
     };
