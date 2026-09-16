@@ -280,7 +280,9 @@ label.field-label{
   display:block; font-size: 11px; font-weight: 600;
   color: var(--text-soft); margin: 9px 0 4px;
 }
-input[type=text], input[type=date], textarea, select{
+input[type=text], input[type=search], input[type=date], textarea, select{
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%; padding: 8px 11px;
   border: 1px solid var(--border); border-radius: 11px;
   background: var(--surface);
@@ -1137,8 +1139,8 @@ function openFolderSheet(folderId){
   openSheet(`
     <div class="sheet-handle"></div>
     <div class="sheet-title">${editing ? 'Edit folder' : 'New folder'}</div>
-    <label class="field-label">Folder name</label>
-    <input type="text" id="folderTitleInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g. Skincare" value="${editing ? escapeHtml(editing.name) : ''}">
+    <label class="field-label">Folder</label>
+    <input type="search" id="folderTitleInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g. Skincare" value="${editing ? escapeHtml(editing.name) : ''}">
     <label class="field-label">Icon</label>
     <div class="icon-picker" id="iconPicker">
       <button type="button" class="icon-swatch ${!(editing && editing.icon) ? 'selected' : ''}" data-icon="" title="No icon"><div class="no-icon-mark"></div></button>
@@ -1229,8 +1231,8 @@ function openProductSheet(productId){
       <div class="photo-hint">Tap the square to add a photo</div>
     </div>
 
-    <label class="field-label">Product name</label>
-    <input type="text" id="productTitleInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g. Vitamin C Serum" value="${editing ? escapeHtml(editing.name) : ''}">
+    <label class="field-label">Product</label>
+    <input type="search" id="productTitleInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g. Vitamin C Serum" value="${editing ? escapeHtml(editing.name) : ''}">
 
     <div class="date-row">
       <div>
