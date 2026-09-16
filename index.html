@@ -415,7 +415,7 @@ let products = [];  // {id, name, folderId, image, quantity, inUse, purchaseDate
 let currentFolderId = null;
 let sortMode = 'added';
 let viewMode = 'grid';
-let filterMode = { type: 'all', days: 14 };
+let filterMode = { type: 'all', days: 14, scope: 'direct' };
 const SORT_LABELS = {
   added: 'Recently added',
   name: 'Name A–Z',
@@ -758,12 +758,18 @@ function directChildFolders(parentId){
 function directProducts(folderId){
   return products.filter(p => p.folderId === folderId);
 }
-function countRecursive(folderId){
-  let count = directProducts(folderId).length;
+function collectDescendantProducts(folderId){
+  let list = directProducts(folderId);
   for(const sub of directChildFolders(folderId)){
-    count += countRecursive(sub.id);
+    list = list.concat(collectDescendantProducts(sub.id));
   }
-  return count;
+  return list;
+}
+// Folder tile badges always show counts matching the active filter (if any),
+// regardless of whether the main list is scoped to this folder only or
+// this folder + subfolders.
+function countRecursive(folderId){
+  return filterProducts(collectDescendantProducts(folderId)).length;
 }
 function pathTo(folderId){
   const path = [];
@@ -820,8 +826,9 @@ function updateFilterLabel(){
   if(filterMode.type === 'using') label = 'Using';
   else if(filterMode.type === 'expired') label = 'Expired';
   else if(filterMode.type === 'soon') label = `≤${filterMode.days}d`;
+  if(filterMode.scope === 'recursive') label += ' ·all';
   filterLabelEl.textContent = label;
-  filterBtnEl.classList.toggle('active', filterMode.type !== 'all');
+  filterBtnEl.classList.toggle('active', filterMode.type !== 'all' || filterMode.scope === 'recursive');
 }
 
 document.getElementById('viewToggle').addEventListener('click', (e)=>{
@@ -885,7 +892,8 @@ function filterProducts(list){
 
 function renderGrid(){
   const subFolders = directChildFolders(currentFolderId).sort((a,b)=>a.name.localeCompare(b.name));
-  const items = sortedProducts(filterProducts(directProducts(currentFolderId)));
+  const rawItems = filterMode.scope === 'recursive' ? collectDescendantProducts(currentFolderId) : directProducts(currentFolderId);
+  const items = sortedProducts(filterProducts(rawItems));
   const filtered = filterMode.type !== 'all';
   countLabel.textContent = `${subFolders.length} folder${subFolders.length!==1?'s':''} · ${items.length} item${items.length!==1?'s':''}`;
 
@@ -1001,11 +1009,22 @@ filterBtnEl.onclick = ()=>{
         <span class="check">✓</span>
       </div>
     </div>
+    <label class="field-label" style="margin-top:14px;">Search in</label>
+    <div class="sort-options">
+      <div class="action-item ${filterMode.scope!=='recursive'?'active':''}" data-scope="direct"><span>This folder only</span><span class="check">✓</span></div>
+      <div class="action-item ${filterMode.scope==='recursive'?'active':''}" data-scope="recursive"><span>This folder and subfolders</span><span class="check">✓</span></div>
+    </div>
   `);
   overlay.querySelectorAll('[data-filter]').forEach(el=>{
     el.onclick = (e)=>{
       if(e.target.id === 'filterDaysInput') return;
       filterMode.type = el.getAttribute('data-filter');
+      closeOverlay(); render();
+    };
+  });
+  overlay.querySelectorAll('[data-scope]').forEach(el=>{
+    el.onclick = ()=>{
+      filterMode.scope = el.getAttribute('data-scope');
       closeOverlay(); render();
     };
   });
