@@ -1004,7 +1004,7 @@ filterBtnEl.onclick = ()=>{
       <div class="action-item ${filterMode.type==='expired'?'active':''}" data-filter="expired"><span>Expired</span><span class="check">✓</span></div>
       <div class="action-item filter-days-row ${filterMode.type==='soon'?'active':''}" data-filter="soon">
         <span class="filter-days-label">Expiring within</span>
-        <input type="text" inputmode="numeric" class="filter-days-input" id="filterDaysInput" value="${filterMode.days}">
+        <input type="text" inputmode="numeric" class="filter-days-input" id="filterDaysInput" autocomplete="off" value="${filterMode.days}">
         <span class="filter-days-label">days</span>
         <span class="check">✓</span>
       </div>
@@ -1138,7 +1138,7 @@ function openFolderSheet(folderId){
     <div class="sheet-handle"></div>
     <div class="sheet-title">${editing ? 'Edit folder' : 'New folder'}</div>
     <label class="field-label">Folder name</label>
-    <input type="text" id="folderNameInput" placeholder="e.g. Skincare" value="${editing ? escapeHtml(editing.name) : ''}">
+    <input type="text" id="folderTitleInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g. Skincare" value="${editing ? escapeHtml(editing.name) : ''}">
     <label class="field-label">Icon</label>
     <div class="icon-picker" id="iconPicker">
       <button type="button" class="icon-swatch ${!(editing && editing.icon) ? 'selected' : ''}" data-icon="" title="No icon"><div class="no-icon-mark"></div></button>
@@ -1149,7 +1149,7 @@ function openFolderSheet(folderId){
       <button class="btn btn-primary" id="saveFolderBtn">Save</button>
     </div>
   `);
-  const nameInput = document.getElementById('folderNameInput');
+  const nameInput = document.getElementById('folderTitleInput');
   nameInput.focus();
   let selectedIcon = editing && editing.icon ? editing.icon : null;
   const iconPicker = document.getElementById('iconPicker');
@@ -1230,7 +1230,7 @@ function openProductSheet(productId){
     </div>
 
     <label class="field-label">Product name</label>
-    <input type="text" id="nameInput" placeholder="e.g. Vitamin C Serum" value="${editing ? escapeHtml(editing.name) : ''}">
+    <input type="text" id="productTitleInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g. Vitamin C Serum" value="${editing ? escapeHtml(editing.name) : ''}">
 
     <div class="date-row">
       <div>
@@ -1241,7 +1241,7 @@ function openProductSheet(productId){
       </div>
       <div style="flex: 0 0 84px;">
         <label class="field-label">Qty</label>
-        <input type="text" inputmode="numeric" id="qtyInput" value="${editing && (editing.quantity===0 || editing.quantity) ? editing.quantity : 1}">
+        <input type="text" inputmode="numeric" id="qtyInput" autocomplete="off" value="${editing && (editing.quantity===0 || editing.quantity) ? editing.quantity : 1}">
       </div>
     </div>
 
@@ -1253,18 +1253,18 @@ function openProductSheet(productId){
     <div class="date-row">
       <div>
         <label class="field-label">Purchased on</label>
-        <input type="date" id="purchaseInput" value="${editing?.purchaseDate || ''}">
+        <input type="date" id="purchaseInput" autocomplete="off" value="${editing?.purchaseDate || ''}">
       </div>
       <div>
         <label class="field-label">Manufactured on</label>
-        <input type="date" id="mfgInput" value="${editing?.mfgDate || ''}">
+        <input type="date" id="mfgInput" autocomplete="off" value="${editing?.mfgDate || ''}">
       </div>
     </div>
     <label class="field-label">Expiration date</label>
-    <input type="date" id="expInput" value="${editing?.expDate || ''}">
+    <input type="date" id="expInput" autocomplete="off" value="${editing?.expDate || ''}">
 
     <label class="field-label">Notes</label>
-    <textarea id="notesInput" placeholder="Shade, where you bought it, how it's working out...">${editing ? escapeHtml(editing.notes||'') : ''}</textarea>
+    <textarea id="notesInput" autocomplete="off" placeholder="Shade, where you bought it, how it's working out...">${editing ? escapeHtml(editing.notes||'') : ''}</textarea>
 
     <div class="sheet-actions">
       ${editing ? '<button class="btn btn-danger" id="deleteProductBtn">Delete</button>' : '<button class="btn btn-secondary" id="cancelProductBtn">Cancel</button>'}
@@ -1320,8 +1320,8 @@ function openProductSheet(productId){
   };
 
   document.getElementById('saveProductBtn').onclick = async ()=>{
-    const name = document.getElementById('nameInput').value.trim();
-    if(!name){ document.getElementById('nameInput').focus(); return; }
+    const name = document.getElementById('productTitleInput').value.trim();
+    if(!name){ document.getElementById('productTitleInput').focus(); return; }
     pushUndo();
     const folderVal = document.getElementById('folderSelect').value || null;
     let quantity = parseInt(document.getElementById('qtyInput').value, 10);
