@@ -139,16 +139,24 @@ body{
   white-space: nowrap;
 }
 .filter-btn.active{ background: var(--pink-pale); border-color: var(--pink); color: var(--pink-deep); font-weight:600; }
+.dir-btn{ padding: 6px 10px; flex-shrink: 0; }
+.dir-btn:disabled{ opacity: 0.35; }
 .sort-filter-row{ display:flex; gap: 8px; overflow-x:auto; }
 
 /* Grid */
 .grid{
   padding: 14px 18px 30px;
+  display:flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.grid-group{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
-.grid.list-view{
+.grid-group:empty{ display:none; }
+.grid.list-view .grid-group{
   grid-template-columns: 1fr;
 }
 .list-view .folder-tile{
@@ -206,6 +214,21 @@ body{
   color: var(--text-soft); font-size: 16px;
   background: rgba(255,255,255,0.6);
 }
+.drag-handle{
+  position:absolute; top: 8px; right: 8px; z-index: 2;
+  width: 28px; height: 28px; border-radius: 50%;
+  display:flex; align-items:center; justify-content:center;
+  color: var(--pink-deep);
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 1px 3px rgba(90,60,50,0.15);
+  cursor: grab; touch-action: none;
+}
+.drag-handle:active{ cursor: grabbing; }
+.drag-handle.handle-left{ right: auto; left: 8px; }
+.sortable-ghost{ opacity: 0.4; }
+.sortable-chosen{ box-shadow: 0 8px 20px rgba(90,60,50,0.25); }
+
+
 
 .product-tile{ cursor: pointer; display:flex; flex-direction:column; }
 .product-photo{
@@ -313,6 +336,7 @@ textarea{ min-height: 44px; resize: vertical; }
 .date-row > div{ flex:1; }
 
 .photo-row{ display:flex; align-items:center; gap: 12px; margin-top: 2px; }
+.photo-picker-wrap{ position:relative; flex-shrink: 0; }
 .photo-picker{
   width: 76px; height: 76px; flex-shrink: 0; border-radius: 14px;
   border: 1.5px dashed var(--pink);
@@ -324,6 +348,13 @@ textarea{ min-height: 44px; resize: vertical; }
 .photo-picker img{ width:100%; height:100%; object-fit: cover; position:absolute; inset:0; }
 .photo-picker .plus-icon{ font-size: 18px; line-height: 1; }
 .photo-hint{ font-size: 12px; color: var(--text-soft); }
+.photo-remove-btn{
+  position:absolute; top:-6px; right:-6px; width:22px; height:22px;
+  border-radius:50%; background: var(--red); color:#fff;
+  font-size:12px; line-height:1; border:2px solid var(--bg);
+  display:flex; align-items:center; justify-content:center; padding:0;
+}
+.photo-remove-btn.hidden{ display:none; }
 
 .sheet-actions{ display:flex; gap: 10px; margin-top: 14px; }
 .btn{
@@ -387,6 +418,11 @@ input[type=text].filter-days-input{
   white-space: nowrap; flex-shrink: 0; overflow: visible;
 }
 .filter-days-row .check{ margin-left: auto; flex-shrink:0; }
+input[type=search].filter-keyword-input{
+  flex: 1; min-width: 0; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; background: var(--surface); color: var(--text);
+}
 </style>
 </head>
 <body>
@@ -412,6 +448,7 @@ input[type=text].filter-days-input{
       </div>
       <div class="toolrow-line sort-filter-row">
         <button class="sort-btn" id="sortBtn">⇅ <span id="sortLabel">Recently added</span></button>
+        <button class="sort-btn dir-btn" id="dirBtn" aria-label="Toggle sort direction"><span id="dirIcon">↓</span></button>
         <button class="filter-btn" id="filterBtn">⚲ <span id="filterLabel">Filter</span></button>
       </div>
     </div>
@@ -436,17 +473,23 @@ const filterLabelEl = document.getElementById('filterLabel');
 const filterBtnEl = document.getElementById('filterBtn');
 
 let folders = [];   // {id, name, parentId, icon}
-let products = [];  // {id, name, folderId, image, quantity, inUse, purchaseDate, mfgDate, expDate, notes, createdAt, updatedAt}
+let products = [];  // {id, name, brand, attrType, attrValue, folderId, image, quantity, inUse, purchaseDate, mfgDate, expDate, notes, createdAt, updatedAt}
 let currentFolderId = null;
 let sortMode = 'added';
+let sortDirection = 'desc';
+let manualOrder = []; // array of product ids in user-defined order
+let folderManualOrder = []; // array of folder ids in user-defined order
 let viewMode = 'grid';
-let filterMode = { type: 'all', days: 14, scope: 'direct' };
+let filterMode = { type: 'all', days: 14, scope: 'direct', keyword: '' };
 const SORT_LABELS = {
   added: 'Recently added',
-  name: 'Name A–Z',
-  expiry: 'Expiring soonest',
-  purchased: 'Recently purchased'
+  name: 'Name',
+  expiry: 'Expiration date',
+  purchased: 'Purchase date',
+  manual: 'Manual'
 };
+// Sensible default direction when a person first switches to each sort mode.
+const SORT_DEFAULT_DIR = { added: 'desc', name: 'asc', expiry: 'asc', purchased: 'desc', manual: 'asc' };
 
 // Minimalist line-icon set for the default category folders — plain strokes,
 // no fill, matching the app's understated feminine look.
@@ -610,6 +653,18 @@ async function deleteProductStorage(id){
 async function saveViewMode(){
   try{ const r = await storageAPI.set('view-mode', viewMode, false); if(!r) showStorageWarning(); }
   catch(e){ console.error(e); showStorageWarning(); }
+}
+async function saveManualOrder(){
+  try{ const r = await storageAPI.set('manual-order', JSON.stringify(manualOrder), false); if(!r) showStorageWarning(); }
+  catch(e){ console.error(e); showStorageWarning(); }
+}
+async function saveFolderManualOrder(){
+  try{ const r = await storageAPI.set('folder-manual-order', JSON.stringify(folderManualOrder), false); if(!r) showStorageWarning(); }
+  catch(e){ console.error(e); showStorageWarning(); }
+}
+async function saveSortState(){
+  try{ await storageAPI.set('sort-state', JSON.stringify({ mode: sortMode, direction: sortDirection }), false); }
+  catch(e){ console.error(e); }
 }
 
 // ---------- Undo / Redo ----------
@@ -798,6 +853,18 @@ async function loadAll(){
   products = results.filter(Boolean).map(v => JSON.parse(v));
   const vRaw = await safeGet('view-mode');
   if(vRaw === 'grid' || vRaw === 'list') viewMode = vRaw;
+  const moRaw = await safeGet('manual-order');
+  if(moRaw){ try{ manualOrder = JSON.parse(moRaw); }catch(e){ manualOrder = []; } }
+  const fmoRaw = await safeGet('folder-manual-order');
+  if(fmoRaw){ try{ folderManualOrder = JSON.parse(fmoRaw); }catch(e){ folderManualOrder = []; } }
+  const sortRaw = await safeGet('sort-state');
+  if(sortRaw){
+    try{
+      const s = JSON.parse(sortRaw);
+      if(s.mode && SORT_LABELS[s.mode]) sortMode = s.mode;
+      if(s.direction === 'asc' || s.direction === 'desc') sortDirection = s.direction;
+    }catch(e){}
+  }
 
   const seededFlag = await safeGet('seeded-v1');
   if(!seededFlag){
@@ -948,6 +1015,10 @@ function render(){
   gridEl.classList.toggle('list-view', viewMode === 'list');
   document.getElementById('gridViewBtn').classList.toggle('active', viewMode === 'grid');
   document.getElementById('listViewBtn').classList.toggle('active', viewMode === 'list');
+  const dirBtn = document.getElementById('dirBtn');
+  const dirIcon = document.getElementById('dirIcon');
+  dirBtn.disabled = sortMode === 'manual';
+  dirIcon.textContent = sortDirection === 'asc' ? '↑' : '↓';
   updateFilterLabel();
   window.scrollTo(0, 0);
 }
@@ -957,9 +1028,11 @@ function updateFilterLabel(){
   if(filterMode.type === 'using') label = 'Using';
   else if(filterMode.type === 'expired') label = 'Expired';
   else if(filterMode.type === 'soon') label = `≤${filterMode.days}d`;
+  else if(filterMode.type === 'keyword' && filterMode.keyword) label = `"${filterMode.keyword.slice(0,10)}"`;
   if(filterMode.scope === 'recursive') label += ' ·all';
   filterLabelEl.textContent = label;
-  filterBtnEl.classList.toggle('active', filterMode.type !== 'all' || filterMode.scope === 'recursive');
+  const filterActive = (filterMode.type !== 'all' && !(filterMode.type==='keyword' && !filterMode.keyword)) || filterMode.scope === 'recursive';
+  filterBtnEl.classList.toggle('active', filterActive);
 }
 
 document.getElementById('viewToggle').addEventListener('click', (e)=>{
@@ -988,10 +1061,14 @@ function renderCrumbs(){
   });
 }
 
+function manualIndexOf(id){
+  const i = manualOrder.indexOf(id);
+  return i === -1 ? Infinity : i;
+}
 function sortedProducts(list){
   const arr = [...list];
   if(sortMode==='name') arr.sort((a,b)=> a.name.localeCompare(b.name));
-  else if(sortMode==='purchased') arr.sort((a,b)=> (b.purchaseDate||'').localeCompare(a.purchaseDate||''));
+  else if(sortMode==='purchased') arr.sort((a,b)=> (a.purchaseDate||'').localeCompare(b.purchaseDate||''));
   else if(sortMode==='expiry') arr.sort((a,b)=>{
     const ea = effectiveExp(a), eb = effectiveExp(b);
     if(!ea && !eb) return 0;
@@ -999,7 +1076,9 @@ function sortedProducts(list){
     if(!eb) return -1;
     return ea.date.localeCompare(eb.date);
   });
-  else arr.sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+  else if(sortMode==='manual') arr.sort((a,b)=> manualIndexOf(a.id) - manualIndexOf(b.id));
+  else arr.sort((a,b)=> (a.createdAt||0) - (b.createdAt||0));
+  if(sortMode !== 'manual' && sortDirection === 'desc') arr.reverse();
   return arr;
 }
 
@@ -1018,13 +1097,57 @@ function filterProducts(list){
     const days = Math.round((exp - today)/86400000);
     return days <= (filterMode.days || 14);
   });
+  if(filterMode.type === 'keyword'){
+    const q = (filterMode.keyword || '').trim().toLowerCase();
+    if(!q) return list;
+    return list.filter(p=>{
+      const hay = [p.brand, p.name, p.attrValue, p.notes].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
   return list;
 }
 
-function renderGrid(){
-  const subFolders = directChildFolders(currentFolderId).sort((a,b)=>a.name.localeCompare(b.name));
+function formatProductTitle(p){
+  const parts = [];
+  if(p.brand) parts.push(p.brand);
+  parts.push(p.name);
+  let title = escapeHtml(parts.join(' '));
+  if(p.attrType && p.attrType !== 'na' && p.attrValue){
+    title += ' in ' + escapeHtml(p.attrValue);
+  }
+  return title;
+}
+
+function getScopedFilteredItems(){
   const rawItems = filterMode.scope === 'recursive' ? collectDescendantProducts(currentFolderId) : directProducts(currentFolderId);
-  const items = sortedProducts(filterProducts(rawItems));
+  return filterProducts(rawItems);
+}
+
+function folderManualIndexOf(id){
+  const i = folderManualOrder.indexOf(id);
+  return i === -1 ? Infinity : i;
+}
+
+const DRAG_HANDLE_SVG = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>`;
+
+function renderGrid(){
+  const manual = sortMode === 'manual';
+  let subFolders = directChildFolders(currentFolderId);
+  if(manual){
+    const set = new Set(folderManualOrder);
+    subFolders.forEach(f=>{ if(!set.has(f.id)){ folderManualOrder.push(f.id); set.add(f.id); } });
+    subFolders = subFolders.slice().sort((a,b)=> folderManualIndexOf(a.id) - folderManualIndexOf(b.id));
+  } else {
+    subFolders = subFolders.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  }
+
+  const filteredItems = getScopedFilteredItems();
+  if(manual){
+    const set = new Set(manualOrder);
+    filteredItems.forEach(p=>{ if(!set.has(p.id)){ manualOrder.push(p.id); set.add(p.id); } });
+  }
+  const items = sortedProducts(filteredItems);
   const filtered = filterMode.type !== 'all';
   countLabel.textContent = `${subFolders.length} folder${subFolders.length!==1?'s':''} · ${items.length} item${items.length!==1?'s':''}`;
 
@@ -1033,29 +1156,32 @@ function renderGrid(){
       <div class="big">${filtered ? 'No matches' : 'Nothing here yet'}</div>
       <div>${filtered ? 'Nothing in this folder matches that filter.' : 'Tap + to add your first product or folder.'}</div>
     </div>`;
+    destroyManualSortables();
     return;
   }
 
-  let html = '';
+  let folderHtml = '';
   subFolders.forEach(f=>{
     const c = countRecursive(f.id);
-    html += `<div class="tile folder-tile" data-folder="${f.id}">
+    folderHtml += `<div class="tile folder-tile" data-folder="${f.id}">
       ${folderIconMarkup(f)}
       <div class="folder-name">${escapeHtml(f.name)}</div>
       <div class="folder-meta">${c} item${c!==1?'s':''}</div>
       <div class="tile-menu-btn" data-folder-menu="${f.id}">⋯</div>
+      ${manual ? `<div class="drag-handle handle-left" title="Drag to reorder">${DRAG_HANDLE_SVG}</div>` : ''}
     </div>`;
   });
+  let productHtml = '';
   items.forEach(p=>{
     const info = expiryInfo(p);
     const photo = p.image
       ? `<img class="product-photo" src="${p.image}">`
       : `<div class="product-photo placeholder">✿</div>`;
     const qty = (p.quantity===0 || p.quantity) ? p.quantity : 1;
-    html += `<div class="tile product-tile" data-product="${p.id}">
+    productHtml += `<div class="tile product-tile" data-product="${p.id}">
       ${photo}
       <div class="product-body">
-        <div class="product-name">${escapeHtml(p.name)}</div>
+        <div class="product-name">${formatProductTitle(p)}</div>
         <div class="product-sub">Qty ${qty} ${p.purchaseDate ? '· Bought ' + fmtDate(p.purchaseDate) : ''}</div>
         <div style="display:flex; flex-wrap:wrap; gap:5px;">
           ${p.inUse ? `<div class="badge using">In use</div>` : ''}
@@ -1063,13 +1189,18 @@ function renderGrid(){
         </div>
         <div class="updated-label">Updated ${fmtDateTime(p.updatedAt || p.createdAt)}</div>
       </div>
+      ${manual ? `<div class="drag-handle" title="Drag to reorder">${DRAG_HANDLE_SVG}</div>` : ''}
     </div>`;
   });
-  gridEl.innerHTML = html;
+
+  gridEl.innerHTML = `
+    <div class="grid-group" id="folderGroup">${folderHtml}</div>
+    <div class="grid-group" id="productGroup">${productHtml}</div>
+  `;
 
   gridEl.querySelectorAll('[data-folder]').forEach(el=>{
     el.onclick = (e)=>{
-      if(e.target.closest('[data-folder-menu]')) return;
+      if(e.target.closest('[data-folder-menu]') || e.target.closest('.drag-handle')) return;
       currentFolderId = el.getAttribute('data-folder');
       render();
     };
@@ -1078,8 +1209,94 @@ function renderGrid(){
     el.onclick = (e)=>{ e.stopPropagation(); openFolderSheet(el.getAttribute('data-folder-menu')); };
   });
   gridEl.querySelectorAll('[data-product]').forEach(el=>{
-    el.onclick = ()=> openProductSheet(el.getAttribute('data-product'));
+    el.onclick = (e)=>{
+      if(e.target.closest('.drag-handle')) return;
+      openProductSheet(el.getAttribute('data-product'));
+    };
   });
+
+  if(manual){
+    setupManualDrag();
+  } else {
+    destroyManualSortables();
+  }
+}
+
+// ---------- Manual drag-and-drop reordering ----------
+// Loaded lazily (like the barcode scanner) so most people never pay for it.
+let sortableLibPromise = null;
+function ensureSortableLoaded(){
+  if(window.Sortable) return Promise.resolve();
+  if(sortableLibPromise) return sortableLibPromise;
+  sortableLibPromise = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js';
+    s.onload = ()=> resolve();
+    s.onerror = ()=> { sortableLibPromise = null; reject(new Error('load-failed')); };
+    document.head.appendChild(s);
+  });
+  return sortableLibPromise;
+}
+
+let folderSortableInstance = null;
+let productSortableInstance = null;
+function destroyManualSortables(){
+  if(folderSortableInstance){ try{ folderSortableInstance.destroy(); }catch(e){} folderSortableInstance = null; }
+  if(productSortableInstance){ try{ productSortableInstance.destroy(); }catch(e){} productSortableInstance = null; }
+}
+
+// Reinserts the just-reordered ids back into orderArray in their new
+// relative sequence, anchored at the neighborhood they were already in —
+// so dragging within one folder doesn't scatter items from other folders.
+function reorderManualList(orderArray, newVisibleOrderIds){
+  let insertAt = orderArray.length;
+  let removedBefore = 0;
+  for(const id of newVisibleOrderIds){
+    const idx = orderArray.indexOf(id);
+    if(idx !== -1){ insertAt = idx; break; }
+  }
+  for(const id of newVisibleOrderIds){
+    const idx = orderArray.indexOf(id);
+    if(idx !== -1 && idx < insertAt) removedBefore++;
+  }
+  const filtered = orderArray.filter(id => !newVisibleOrderIds.includes(id));
+  const adjustedInsertAt = Math.max(0, insertAt - removedBefore);
+  filtered.splice(adjustedInsertAt, 0, ...newVisibleOrderIds);
+  return filtered;
+}
+
+async function setupManualDrag(){
+  destroyManualSortables();
+  try{
+    await ensureSortableLoaded();
+  }catch(e){ return; }
+  if(sortMode !== 'manual') return; // mode may have changed while the library was loading
+
+  const folderGroup = document.getElementById('folderGroup');
+  const productGroup = document.getElementById('productGroup');
+
+  if(folderGroup){
+    folderSortableInstance = new Sortable(folderGroup, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: async ()=>{
+        const newOrder = Array.from(folderGroup.querySelectorAll('[data-folder]')).map(el=>el.getAttribute('data-folder'));
+        folderManualOrder = reorderManualList(folderManualOrder, newOrder);
+        await saveFolderManualOrder();
+      }
+    });
+  }
+  if(productGroup){
+    productSortableInstance = new Sortable(productGroup, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: async ()=>{
+        const newOrder = Array.from(productGroup.querySelectorAll('[data-product]')).map(el=>el.getAttribute('data-product'));
+        manualOrder = reorderManualList(manualOrder, newOrder);
+        await saveManualOrder();
+      }
+    });
+  }
 }
 
 function escapeHtml(s){
@@ -1120,8 +1337,21 @@ document.getElementById('sortBtn').onclick = ()=>{
     </div>
   `);
   overlay.querySelectorAll('[data-sort]').forEach(el=>{
-    el.onclick = ()=>{ sortMode = el.getAttribute('data-sort'); closeOverlay(); render(); };
+    el.onclick = ()=>{
+      const mode = el.getAttribute('data-sort');
+      sortMode = mode;
+      sortDirection = SORT_DEFAULT_DIR[mode] || 'asc';
+      saveSortState();
+      closeOverlay(); render();
+    };
   });
+};
+
+document.getElementById('dirBtn').onclick = ()=>{
+  if(sortMode === 'manual') return;
+  sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  saveSortState();
+  render();
 };
 
 // ---------- Filter menu ----------
@@ -1139,6 +1369,10 @@ filterBtnEl.onclick = ()=>{
         <span class="filter-days-label">days</span>
         <span class="check">✓</span>
       </div>
+      <div class="action-item filter-days-row ${filterMode.type==='keyword'?'active':''}" data-filter="keyword">
+        <input type="search" class="filter-keyword-input" id="filterKeywordInput" autocomplete="off" placeholder="Search brand, product, shade, notes…" value="${escapeHtml(filterMode.keyword||'')}">
+        <span class="check">✓</span>
+      </div>
     </div>
     <label class="field-label" style="margin-top:14px;">Search in</label>
     <div class="sort-options">
@@ -1148,7 +1382,7 @@ filterBtnEl.onclick = ()=>{
   `);
   overlay.querySelectorAll('[data-filter]').forEach(el=>{
     el.onclick = (e)=>{
-      if(e.target.id === 'filterDaysInput') return;
+      if(e.target.id === 'filterDaysInput' || e.target.id === 'filterKeywordInput') return;
       filterMode.type = el.getAttribute('data-filter');
       closeOverlay(); render();
     };
@@ -1168,6 +1402,16 @@ filterBtnEl.onclick = ()=>{
     filterMode.type = 'soon';
   };
   daysInput.onkeydown = (e)=>{
+    if(e.key === 'Enter'){ closeOverlay(); render(); }
+  };
+  const keywordInput = document.getElementById('filterKeywordInput');
+  keywordInput.onclick = (e)=> e.stopPropagation();
+  keywordInput.oninput = ()=>{
+    filterMode.keyword = keywordInput.value;
+    filterMode.type = 'keyword';
+    render();
+  };
+  keywordInput.onkeydown = (e)=>{
     if(e.key === 'Enter'){ closeOverlay(); render(); }
   };
 };
@@ -1209,6 +1453,9 @@ async function applyBackup(data){
   products = importedProducts.map(p => ({
     id: p.id || uid(),
     name: p.name || 'Untitled',
+    brand: p.brand || '',
+    attrType: p.attrType || 'na',
+    attrValue: p.attrValue || '',
     folderId: p.folderId || null,
     image: p.image || null,
     quantity: (p.quantity===0 || p.quantity) ? p.quantity : 1,
@@ -1353,15 +1600,37 @@ function openProductSheet(productId){
     <div class="sheet-title">${editing ? 'Edit product' : 'New product'}</div>
 
     <div class="photo-row">
-      <div class="photo-picker" id="photoPicker">
-        ${editing && editing.image ? `<img src="${editing.image}">` : `<div class="plus-icon">＋</div><div>Photo</div>`}
-        <input type="file" accept="image/*" id="photoInput" style="display:none;">
+      <div class="photo-picker-wrap">
+        <div class="photo-picker" id="photoPicker">
+          ${editing && editing.image ? `<img src="${editing.image}">` : `<div class="plus-icon">＋</div><div>Photo</div>`}
+          <input type="file" accept="image/*" id="photoInput" style="display:none;">
+        </div>
+        <button type="button" class="photo-remove-btn ${editing && editing.image ? '' : 'hidden'}" id="removePhotoBtn" aria-label="Remove photo">✕</button>
       </div>
       <div class="photo-hint">Tap the square to add a photo</div>
     </div>
 
     <label class="field-label">Product</label>
     <input type="search" id="productTitleInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g. Vitamin C Serum" value="${editing ? escapeHtml(editing.name) : ''}">
+
+    <label class="field-label">Brand</label>
+    <input type="text" id="brandInput" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g. The Ordinary" value="${editing && editing.brand ? escapeHtml(editing.brand) : ''}">
+
+    <div class="date-row">
+      <div>
+        <label class="field-label">Shade / Color / Scent</label>
+        <select id="attrTypeSelect">
+          <option value="na" ${(!editing || !editing.attrType || editing.attrType==='na') ? 'selected':''}>N/A</option>
+          <option value="shade" ${editing && editing.attrType==='shade' ? 'selected':''}>Shade</option>
+          <option value="color" ${editing && editing.attrType==='color' ? 'selected':''}>Color</option>
+          <option value="scent" ${editing && editing.attrType==='scent' ? 'selected':''}>Scent</option>
+        </select>
+      </div>
+      <div id="attrValueWrap" style="${(!editing || !editing.attrType || editing.attrType==='na') ? 'display:none;' : ''}">
+        <label class="field-label" id="attrValueLabel">Value</label>
+        <input type="text" id="attrValueInput" autocomplete="off" placeholder="e.g. Ruby Woo" value="${editing && editing.attrValue ? escapeHtml(editing.attrValue) : ''}">
+      </div>
+    </div>
 
     <div class="date-row">
       <div>
@@ -1410,14 +1679,42 @@ function openProductSheet(productId){
     inUseToggle.classList.toggle('on', inUseValue);
   };
 
+  const attrTypeSelect = document.getElementById('attrTypeSelect');
+  const attrValueWrap = document.getElementById('attrValueWrap');
+  const attrValueLabel = document.getElementById('attrValueLabel');
+  const ATTR_LABELS = { shade: 'Shade', color: 'Color', scent: 'Scent' };
+  function syncAttrValueField(){
+    const t = attrTypeSelect.value;
+    if(t === 'na'){
+      attrValueWrap.style.display = 'none';
+    } else {
+      attrValueWrap.style.display = '';
+      attrValueLabel.textContent = ATTR_LABELS[t] || 'Value';
+    }
+  }
+  attrTypeSelect.onchange = syncAttrValueField;
+  syncAttrValueField();
+
   let pendingImage = editing ? (editing.image || null) : null;
   const picker = document.getElementById('photoPicker');
   const fileInput = document.getElementById('photoInput');
+  const removePhotoBtn = document.getElementById('removePhotoBtn');
 
   function setPickerImage(dataUrl){
     pendingImage = dataUrl;
     picker.innerHTML = `<img src="${dataUrl}">`;
+    removePhotoBtn.classList.remove('hidden');
   }
+  function clearPickerImage(){
+    pendingImage = null;
+    picker.innerHTML = `<div class="plus-icon">＋</div><div>Photo</div>`;
+    removePhotoBtn.classList.add('hidden');
+    fileInput.value = '';
+  }
+  removePhotoBtn.onclick = (e)=>{
+    e.stopPropagation();
+    clearPickerImage();
+  };
 
   function openPhotoMenu(){
     photoMenuOverlay.innerHTML = `
@@ -1451,6 +1748,10 @@ function openProductSheet(productId){
         if(p.product_name){
           const titleInput = document.getElementById('productTitleInput');
           if(titleInput) titleInput.value = p.product_name;
+        }
+        if(p.brands){
+          const brandInput = document.getElementById('brandInput');
+          if(brandInput) brandInput.value = p.brands.split(',')[0].trim();
         }
         const imgUrl = p.image_front_url || p.image_url || p.image_small_url;
         if(imgUrl){
@@ -1507,6 +1808,9 @@ function openProductSheet(productId){
     const name = document.getElementById('productTitleInput').value.trim();
     if(!name){ document.getElementById('productTitleInput').focus(); return; }
     pushUndo();
+    const brand = document.getElementById('brandInput').value.trim();
+    const attrType = attrTypeSelect.value;
+    const attrValue = attrType === 'na' ? '' : document.getElementById('attrValueInput').value.trim();
     const folderVal = document.getElementById('folderSelect').value || null;
     let quantity = parseInt(document.getElementById('qtyInput').value, 10);
     if(isNaN(quantity) || quantity < 0) quantity = 1;
@@ -1518,6 +1822,9 @@ function openProductSheet(productId){
 
     if(editing){
       editing.name = name;
+      editing.brand = brand;
+      editing.attrType = attrType;
+      editing.attrValue = attrValue;
       editing.folderId = folderVal;
       editing.quantity = quantity;
       editing.inUse = inUseValue;
@@ -1530,7 +1837,7 @@ function openProductSheet(productId){
       await saveProduct(editing);
     } else {
       const p = {
-        id: uid(), name, folderId: folderVal, quantity, inUse: inUseValue,
+        id: uid(), name, brand, attrType, attrValue, folderId: folderVal, quantity, inUse: inUseValue,
         purchaseDate, mfgDate, expDate, notes,
         image: pendingImage, createdAt: now, updatedAt: now
       };
